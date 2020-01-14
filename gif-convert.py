@@ -41,7 +41,8 @@ class App:
         self.frame_rate = IntVar()
         self.disposal = StringVar()
         self.optimization = StringVar()
-        self.background = StringVar(value="")
+        self.scale = IntVar(value=100)
+        # self.background = StringVar(value="")
 
         # child frames
         self.window = ttk.Frame(self.root, padding=8)
@@ -108,37 +109,55 @@ class App:
 
         import os
         if os.name == 'posix':  # mac / linux
+            convert_cmd = "convert"
+            gifsicle_cmd = "gifsicle"
+        else:
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            convert_cmd = ntpath.join(base_path, "bin", "imagemagick", "convert.exe")
+            gifsicle_cmd = ntpath.join(base_path, "bin", "gifsicle", "gifsicle.exe")
+
+        try:
+            convert_add = []
+
             result = subprocess.run(
-                ["convert",
+                [convert_cmd,
                  "-delay", str(fps_to_hs(self.frame_rate.get())),
                  "-loop", str(0),
-                 "-dispose", self.disposal.get()[:1]] +
+                 "-dispose", self.disposal.get()[:1]] + convert_add +
                 self.file_paths + [output_file_path]
             )
+            result.check_returncode()
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror(message=f"Imagemagick conversion failed: {e}")
+            return
 
-            try:
-                result.check_returncode()
-            except subprocess.CalledProcessError as e:
-                messagebox.showerror(message=f"Imagemagick conversion failed: {e}")
-                pass
+        try:
+            gifsicle_add = []
+            if int(self.scale.get()) != 100:
+                gifsicle_add += [
+                    "--scale", f"{int(self.scale.get())/100.0:.4f}"
+                ]
 
             result = subprocess.run(
-                ["gifsicle",
+                [gifsicle_cmd,
                  "-b",
                  f"-{self.optimization.get()[:2]}",
-                 output_file_path
-                 ]
+                 # "--colors", "256"
+                 ] + gifsicle_add + [
+                    output_file_path
+                ]
             )
-
-            try:
-                result.check_returncode()
-            except subprocess.CalledProcessError as e:
-                messagebox.showerror(message=f"gifsicle processing failed: {e}")
-                pass
+            result.check_returncode()
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror(message=f"gifsicle processing failed: {e}")
+            return
 
     def select_background(self):
-        background = colorchooser.askcolor(initialcolor="#ffffff")
-        self.background.set(background)
+        background = colorchooser.askcolor(initialcolor="#ffffff")[1]
+        if background and len(background) > 1:
+            self.background.set(background)
+        else:
+            self.clear_background()
 
     def clear_background(self):
         self.background.set("")
@@ -209,27 +228,38 @@ class ExportFrame(AppFrame):
                                                 "O3: Excessive"
                                             ))
 
-        self.colour_label = ttk.Label(self, textvariable=self.app.background)
-        self.colour_select = ttk.Button(self, text="Background...")
-        self.colour_clear = ttk.Button(self, text="Clear...")
+        # self.colour_label = ttk.Label(self, textvariable=self.app.background)
+        # self.colour_select = ttk.Button(self, text="Background...", command=self.app.select_background)
+        # self.colour_clear = ttk.Button(self, text="Clear...", command=self.app.clear_background)
+
+        self.scale_label = ttk.Label(self, text="Scale: ")
+        self.scale = ttk.Scale(self, from_=1, to=200, variable=self.app.scale, command=self.update_scale)
+        self.scale_value = ttk.Label(self, text="100")
 
         # default values
         self.fps_select.current(0)
         self.disposal_select.current(2)
         self.optimize_select.current(0)
+        self.app.scale.set(100)
 
         self.layout()
 
     def layout(self):
         self.fps_label.grid(column=0, row=1, sticky=(W,))
-        self.fps_select.grid(column=1, row=1, sticky=(W,), colspan=2)
+        self.fps_select.grid(column=1, row=1, sticky=(W,), columnspan=2)
         self.disposal_label.grid(column=0, row=2, sticky=(W,))
-        self.disposal_select.grid(column=1, row=2, sticky=(W,), colspan=2)
+        self.disposal_select.grid(column=1, row=2, sticky=(W,), columnspan=2)
         self.optimize_label.grid(column=0, row=3, sticky=(W,))
-        self.optimize_select.grid(column=1, row=3, sticky=(W,), colspan=2)
-        self.colour_label.grid(column=0, row=4, sticky=(W,))
-        self.colour_select.grid(column=1, row=4, sticky=(W,))
-        self.colour_clear.grid(column=2, row=4, sticky=(W,))
+        self.optimize_select.grid(column=1, row=3, sticky=(W,), columnspan=2)
+        # self.colour_label.grid(column=0, row=4, sticky=(W, E))
+        # self.colour_select.grid(column=1, row=4, sticky=(W,))
+        # self.colour_clear.grid(column=2, row=4, sticky=(W,))
+        self.scale_label.grid(column=0, row=5, sticky=(W,))
+        self.scale.grid(column=1, row=5, sticky=(W, E), columnspan=1)
+        self.scale_value.grid(column=2, row=5, sticky=(W,))
+
+    def update_scale(self, *ign):
+        self.scale_value["text"] = int(self.app.scale.get())
 
 
 class ExportControls(AppFrame):
