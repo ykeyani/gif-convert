@@ -37,3 +37,6 @@ The app will use the bundled binaries but you will still need a working [python 
 
 ### Windows
 `python gif-convert.py`
+
+GPL V2.0
+Copyright (C) 2020  Yasin Keyani

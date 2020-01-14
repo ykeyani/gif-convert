@@ -1,11 +1,32 @@
+#  Copyright (c) 2020. Yasin Keyani
+#
+#  This program is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU General Public License
+#  as published by the Free Software Foundation; either version 2
+#  of the License, or (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 from tkinter import *
 from tkinter import ttk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox, colorchooser
 import ntpath
+import subprocess
 
 
-def fps_to_ms(fps: int):
+def fps_to_ms(fps: int) -> int:
     return int(1000.0/fps)
+
+
+def fps_to_hs(fps: int) -> int:
+    return int(fps_to_ms(fps) / 10)
 
 
 class App:
@@ -18,8 +39,9 @@ class App:
         self.file_paths = []
         self.frames = []
         self.frame_rate = IntVar()
-        self.transparency = IntVar()
         self.disposal = StringVar()
+        self.optimization = StringVar()
+        self.background = StringVar(value="")
 
         # child frames
         self.window = ttk.Frame(self.root, padding=8)
@@ -58,7 +80,6 @@ class App:
                     continue
                 self.file_paths.append(file_path)
                 self.import_frame.file_list.insert("end", ntpath.basename(file_path))
-                self._add_frame(file_path)
             except EXCEPTION:
                 continue
 
@@ -78,15 +99,49 @@ class App:
 
     def save_images(self):
         output_file_name = filedialog.asksaveasfilename()
+        if not output_file_name or len(output_file_name) == 0:
+            return
         if output_file_name[-4:] != ".gif":
             output_file_path = f"{output_file_name}.gif"
         else:
             output_file_path = output_file_name
 
-        imageio.mimsave(output_file_path, self.frames)
+        import os
+        if os.name == 'posix':  # mac / linux
+            result = subprocess.run(
+                ["convert",
+                 "-delay", str(fps_to_hs(self.frame_rate.get())),
+                 "-loop", str(0),
+                 "-dispose", self.disposal.get()[:1]] +
+                self.file_paths + [output_file_path]
+            )
 
-    def _add_frame(self, image_path):
-        self.frames.append(imageio.imread(image_path))
+            try:
+                result.check_returncode()
+            except subprocess.CalledProcessError as e:
+                messagebox.showerror(message=f"Imagemagick conversion failed: {e}")
+                pass
+
+            result = subprocess.run(
+                ["gifsicle",
+                 "-b",
+                 f"-{self.optimization.get()[:2]}",
+                 output_file_path
+                 ]
+            )
+
+            try:
+                result.check_returncode()
+            except subprocess.CalledProcessError as e:
+                messagebox.showerror(message=f"gifsicle processing failed: {e}")
+                pass
+
+    def select_background(self):
+        background = colorchooser.askcolor(initialcolor="#ffffff")
+        self.background.set(background)
+
+    def clear_background(self):
+        self.background.set("")
 
 
 class AppFrame(ttk.Frame):
@@ -133,7 +188,7 @@ class ExportFrame(AppFrame):
     def __init__(self, master, app: App, **kw):
         super().__init__(master, app, **kw)
 
-        self.transparency_select = ttk.Checkbutton(self, text="Transparency", variable=self.app.transparency)
+        # controls
         self.fps_label = ttk.Label(self, text="Framerate: ")
         self.fps_select = ttk.Combobox(self, textvariable=self.app.frame_rate,
                                        values=tuple(fps for fps in range(24, 31)))
@@ -146,17 +201,35 @@ class ExportFrame(AppFrame):
                                                 "3: Restore to previous content"
                                             ))
 
+        self.optimize_label = ttk.Label(self, text="Optimisation: ")
+        self.optimize_select = ttk.Combobox(self, textvariable=self.app.optimization,
+                                            values=(
+                                                "O1: Store Changes",
+                                                "O2: Shrink using transparency",
+                                                "O3: Excessive"
+                                            ))
+
+        self.colour_label = ttk.Label(self, textvariable=self.app.background)
+        self.colour_select = ttk.Button(self, text="Background...")
+        self.colour_clear = ttk.Button(self, text="Clear...")
+
+        # default values
         self.fps_select.current(0)
-        self.disposal_select.current(0)
+        self.disposal_select.current(2)
+        self.optimize_select.current(0)
 
         self.layout()
 
     def layout(self):
-        self.transparency_select.grid(column=0, row=0, columnspan=2, sticky=(W,))
         self.fps_label.grid(column=0, row=1, sticky=(W,))
-        self.fps_select.grid(column=1, row=1, sticky=(W,))
+        self.fps_select.grid(column=1, row=1, sticky=(W,), colspan=2)
         self.disposal_label.grid(column=0, row=2, sticky=(W,))
-        self.disposal_select.grid(column=1, row=2, sticky=(W,))
+        self.disposal_select.grid(column=1, row=2, sticky=(W,), colspan=2)
+        self.optimize_label.grid(column=0, row=3, sticky=(W,))
+        self.optimize_select.grid(column=1, row=3, sticky=(W,), colspan=2)
+        self.colour_label.grid(column=0, row=4, sticky=(W,))
+        self.colour_select.grid(column=1, row=4, sticky=(W,))
+        self.colour_clear.grid(column=2, row=4, sticky=(W,))
 
 
 class ExportControls(AppFrame):
