@@ -37,7 +37,7 @@ class App:
         super().__init__()
 
         self.root = Tk()
-        self.root.minsize(100, 100)
+        self.root.minsize(200, 200)
         self.root.iconbitmap(ntpath.join(BASE_PATH, "gif-convert.ico"))
         self.root.title("gif-convert")
 
