@@ -19,6 +19,9 @@ from tkinter import ttk
 from tkinter import filedialog, messagebox, colorchooser
 import ntpath
 import subprocess
+import os
+
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
 def fps_to_ms(fps: int) -> int:
@@ -34,6 +37,8 @@ class App:
         super().__init__()
 
         self.root = Tk()
+        self.root.minsize(100, 100)
+        self.root.iconbitmap(ntpath.join(BASE_PATH, "gif-convert.ico"))
 
         # application vars
         self.file_paths = []
@@ -50,6 +55,7 @@ class App:
         self.export_frame = ExportFrame(self.window, self)
         self.import_controls = ImportControls(self.window, self)
         self.export_controls = ExportControls(self.window, self)
+        self.busy_label = ttk.Label(self.root, text="Working...")
 
         self._layout()
         self._key_bindings()
@@ -106,17 +112,21 @@ class App:
             output_file_path = f"{output_file_name}.gif"
         else:
             output_file_path = output_file_name
+        self.busy()
+        self.root.after(500, self._save, output_file_path)
 
-        import os
+    def _save(self, output_file_path):
+
         if os.name == 'posix':  # mac / linux
             convert_cmd = "convert"
             gifsicle_cmd = "gifsicle"
         else:
-            base_path = os.path.dirname(os.path.abspath(__file__))
-            convert_cmd = ntpath.join(base_path, "bin", "imagemagick", "convert.exe")
-            gifsicle_cmd = ntpath.join(base_path, "bin", "gifsicle", "gifsicle.exe")
+
+            convert_cmd = ntpath.join(BASE_PATH, "bin", "imagemagick", "convert.exe")
+            gifsicle_cmd = ntpath.join(BASE_PATH, "bin", "gifsicle", "gifsicle.exe")
 
         try:
+
             convert_add = []
 
             result = subprocess.run(
@@ -127,11 +137,7 @@ class App:
                 self.file_paths + [output_file_path]
             )
             result.check_returncode()
-        except subprocess.CalledProcessError as e:
-            messagebox.showerror(message=f"Imagemagick conversion failed: {e}")
-            return
 
-        try:
             gifsicle_add = []
             if int(self.scale.get()) != 100:
                 gifsicle_add += [
@@ -142,25 +148,38 @@ class App:
                 [gifsicle_cmd,
                  "-b",
                  f"-{self.optimization.get()[:2]}",
-                 # "--colors", "256"
+                 "--colors", "256",
+                 "--no-conserve-memory"
                  ] + gifsicle_add + [
                     output_file_path
                 ]
             )
             result.check_returncode()
         except subprocess.CalledProcessError as e:
-            messagebox.showerror(message=f"gifsicle processing failed: {e}")
+            messagebox.showerror(message=f"Processing failed: {e}")
             return
+        finally:
+            self.not_busy()
 
-    def select_background(self):
-        background = colorchooser.askcolor(initialcolor="#ffffff")[1]
-        if background and len(background) > 1:
-            self.background.set(background)
-        else:
-            self.clear_background()
+    # def select_background(self):
+    #     background = colorchooser.askcolor(initialcolor="#ffffff")[1]
+    #     if background and len(background) > 1:
+    #         self.background.set(background)
+    #     else:
+    #         self.clear_background()
+    #
+    # def clear_background(self):
+    #     self.background.set("")
 
-    def clear_background(self):
-        self.background.set("")
+    def busy(self):
+        self.window.pack_forget()
+        self.busy_label.pack(expand=True, fill="both")
+
+
+    def not_busy(self):
+        self.window.lift()
+        self.busy_label.pack_forget()
+        self.window.pack(expand=True, fill="both")
 
 
 class AppFrame(ttk.Frame):
