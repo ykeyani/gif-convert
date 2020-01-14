@@ -39,6 +39,7 @@ class App:
         self.root = Tk()
         self.root.minsize(100, 100)
         self.root.iconbitmap(ntpath.join(BASE_PATH, "gif-convert.ico"))
+        self.root.title("gif-convert")
 
         # application vars
         self.file_paths = []
