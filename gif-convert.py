@@ -52,6 +52,7 @@ class App:
         self.disposal = StringVar()
         self.optimization = StringVar()
         self.scale = IntVar(value=100)
+        self.loop = IntVar(value=0)
         # self.background = StringVar(value="")
 
         # child frames
@@ -86,6 +87,19 @@ class App:
 
     def import_images(self):
         file_paths = filedialog.askopenfilenames()
+        self._import_files(file_paths)
+
+    def import_folder(self):
+        folder_path = filedialog.askdirectory()
+        if not folder_path or len(folder_path) < 1:
+            return
+
+        file_paths = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+        file_paths.sort()
+
+        self._import_files(file_paths)
+
+    def _import_files(self, file_paths):
         for file_path in file_paths:
             try:
                 if file_path in self.file_paths:
@@ -137,7 +151,7 @@ class App:
             result = subprocess.run(
                 [convert_cmd,
                  "-delay", str(fps_to_hs(self.frame_rate.get())),
-                 "-loop", str(0),
+                 "-loop", str(self.loop.get()),
                  "-dispose", self.disposal.get()[:1]] + convert_add +
                 self.file_paths + [output_file_path]
             )
@@ -180,7 +194,6 @@ class App:
         self.window.pack_forget()
         self.busy_label.pack(expand=True, fill="both")
 
-
     def not_busy(self):
         self.window.lift()
         self.busy_label.pack_forget()
@@ -216,6 +229,7 @@ class ImportControls(AppFrame):
         super().__init__(master, app, **kw)
 
         self.import_button = ttk.Button(self, text="Import", command=self.app.import_images)
+        self.folder_button = ttk.Button(self, text="Folder", command=self.app.import_folder)
         self.delete_button = ttk.Button(self, text="Delete", command=self.app.delete_images)
         self.clear_button = ttk.Button(self, text="Clear", command=self.app.clear_images)
 
@@ -223,8 +237,9 @@ class ImportControls(AppFrame):
 
     def layout(self):
         self.import_button.grid(column=0, row=0)
-        self.delete_button.grid(column=1, row=0)
-        self.clear_button.grid(column=2, row=0)
+        self.folder_button.grid(column=1, row=0)
+        self.delete_button.grid(column=2, row=0)
+        self.clear_button.grid(column=3, row=0)
 
 
 class ExportFrame(AppFrame):
@@ -258,13 +273,18 @@ class ExportFrame(AppFrame):
 
         self.scale_label = ttk.Label(self, text="Scale: ")
         self.scale = ttk.Scale(self, from_=1, to=200, variable=self.app.scale, command=self.update_scale)
-        self.scale_value = ttk.Label(self, text="100")
+        self.scale_value = ttk.Button(self, text="100", width=5, command=self.reset_scale)
+
+        self.loop_label = ttk.Label(self, text="Loop: ")
+        self.loop_select = ttk.Combobox(self, textvariable=self.app.loop,
+                                        values=tuple(str(i) for i in range(10)))
 
         # default values
         self.fps_select.current(0)
         self.disposal_select.current(2)
         self.optimize_select.current(0)
         self.app.scale.set(100)
+        self.loop_select.current(0)
 
         self.layout()
 
@@ -281,8 +301,14 @@ class ExportFrame(AppFrame):
         self.scale_label.grid(column=0, row=5, sticky=(W,))
         self.scale.grid(column=1, row=5, sticky=(W, E), columnspan=1)
         self.scale_value.grid(column=2, row=5, sticky=(W,))
+        self.loop_label.grid(column=0, row=6, sticky=(W,))
+        self.loop_select.grid(column=1, row=6, sticky=(W,))
 
     def update_scale(self, *ign):
+        self.scale_value["text"] = int(self.app.scale.get())
+
+    def reset_scale(self, *ign):
+        self.app.scale.set(value=100)
         self.scale_value["text"] = int(self.app.scale.get())
 
 
