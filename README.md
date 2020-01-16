@@ -24,7 +24,7 @@ brew install gifsicle
 ### Debian/Ubuntu
 Using the package manager
 ```shell script
-sudo apt update && sudo apt install -y gifsicle imagemagick
+sudo apt update && sudo apt install -y gifsicle imagemagick python3-tk
 ```
 
 ### Windows (amd64)

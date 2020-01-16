@@ -17,7 +17,8 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog, messagebox, colorchooser
-import ntpath
+# import ntpath
+from sys import platform
 import subprocess
 import os
 
@@ -38,7 +39,10 @@ class App:
 
         self.root = Tk()
         self.root.minsize(200, 200)
-        self.root.iconbitmap(ntpath.join(BASE_PATH, "gif-convert.ico"))
+        if "lin" in platform:
+            self.root.iconphoto(True, PhotoImage(file=os.path.join(BASE_PATH, "gif-convert.png")))
+        else:
+            self.root.iconbitmap(os.path.join(BASE_PATH, "gif-convert.ico"))
         self.root.title("gif-convert")
 
         # application vars
@@ -87,7 +91,7 @@ class App:
                 if file_path in self.file_paths:
                     continue
                 self.file_paths.append(file_path)
-                self.import_frame.file_list.insert("end", ntpath.basename(file_path))
+                self.import_frame.file_list.insert("end", os.path.basename(file_path))
             except EXCEPTION:
                 continue
 
@@ -123,8 +127,8 @@ class App:
             gifsicle_cmd = "gifsicle"
         else:
 
-            convert_cmd = ntpath.join(BASE_PATH, "bin", "imagemagick", "convert.exe")
-            gifsicle_cmd = ntpath.join(BASE_PATH, "bin", "gifsicle", "gifsicle.exe")
+            convert_cmd = os.path.join(BASE_PATH, "bin", "imagemagick", "convert.exe")
+            gifsicle_cmd = os.path.join(BASE_PATH, "bin", "gifsicle", "gifsicle.exe")
 
         try:
 
